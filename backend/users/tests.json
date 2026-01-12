@@ -1,0 +1,31 @@
+{
+  "tests": [
+    {
+      "name": "Create or get user",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "email": "test@example.com",
+        "name": "Test User"
+      },
+      "expectedStatus": 201,
+      "expectedBody": {
+        "id": "number",
+        "email": "test@example.com",
+        "subscription_plan": "demo"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get user by email",
+      "method": "GET",
+      "path": "/?email=test@example.com",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "email": "string",
+        "subscription_plan": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

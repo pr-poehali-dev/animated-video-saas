@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -20,16 +20,18 @@ const Editor = () => {
   const [duration, setDuration] = useState([5]);
   const [animationType, setAnimationType] = useState('subtle');
   const [transition, setTransition] = useState('fade');
+  const [isDragging, setIsDragging] = useState(false);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-
-    const newPhotos: Photo[] = Array.from(files).map((file) => ({
-      id: Math.random().toString(),
-      url: URL.createObjectURL(file),
-      name: file.name
-    }));
+  const processFiles = (files: FileList | File[]) => {
+    const newPhotos: Photo[] = Array.from(files)
+      .filter(file => file.type.startsWith('image/'))
+      .map((file) => ({
+        id: Math.random().toString(),
+        url: URL.createObjectURL(file),
+        name: file.name
+      }));
 
     if (photos.length + newPhotos.length > 3) {
       toast.error('Демо версия: максимум 3 фото');
@@ -40,11 +42,64 @@ const Editor = () => {
     toast.success(`Загружено ${newPhotos.length} фото`);
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    processFiles(files);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      processFiles(files);
+    }
+  };
+
   const removePhoto = (id: string) => {
     setPhotos(photos.filter(p => p.id !== id));
   };
 
-  const handleGenerate = () => {
+  const generateVideoPreview = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 360;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.fillStyle = '#1a1f2c';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, '#9b87f5');
+    gradient.addColorStop(0.5, '#D946EF');
+    gradient.addColorStop(1, '#F97316');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 24px Montserrat';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Видео из ${photos.length} фото`, canvas.width / 2, canvas.height / 2 - 20);
+    ctx.font = '16px Inter';
+    ctx.fillText(`${duration[0]}с каждый кадр · ${animationType}`, canvas.width / 2, canvas.height / 2 + 20);
+
+    return canvas.toDataURL('image/png');
+  };
+
+  const handleGenerate = async () => {
     if (photos.length === 0) {
       toast.error('Загрузите хотя бы одно фото');
       return;
@@ -58,6 +113,8 @@ const Editor = () => {
         if (prev >= 100) {
           clearInterval(interval);
           setIsProcessing(false);
+          const preview = generateVideoPreview();
+          setVideoPreview(preview);
           toast.success('Видео готово!');
           return 100;
         }
@@ -88,6 +145,7 @@ const Editor = () => {
                       </span>
                     </Button>
                     <input
+                      ref={fileInputRef}
                       id="file-upload"
                       type="file"
                       multiple
@@ -99,9 +157,27 @@ const Editor = () => {
                 </div>
 
                 {photos.length === 0 ? (
-                  <div className="border-2 border-dashed border-border rounded-xl p-12 text-center">
-                    <Icon name="ImagePlus" size={48} className="mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground mb-2">Перетащите фото сюда или нажмите кнопку выше</p>
+                  <div 
+                    className={`border-2 border-dashed rounded-xl p-12 text-center transition-all cursor-pointer ${
+                      isDragging 
+                        ? 'border-primary bg-primary/10 scale-105' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Icon 
+                      name="ImagePlus" 
+                      size={48} 
+                      className={`mx-auto mb-4 transition-colors ${
+                        isDragging ? 'text-primary' : 'text-muted-foreground'
+                      }`} 
+                    />
+                    <p className="text-muted-foreground mb-2 font-medium">
+                      {isDragging ? 'Отпустите для загрузки' : 'Перетащите фото сюда или кликните'}
+                    </p>
                     <p className="text-sm text-muted-foreground">Поддерживаются JPG, PNG (макс. 3 фото)</p>
                   </div>
                 ) : (
@@ -129,7 +205,7 @@ const Editor = () => {
             <Card className="glass border-border">
               <CardContent className="p-6">
                 <h2 className="text-xl font-bold mb-4">Превью</h2>
-                <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl flex items-center justify-center">
+                <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl flex items-center justify-center overflow-hidden relative">
                   {isProcessing ? (
                     <div className="text-center space-y-4 w-full px-8">
                       <Icon name="Loader2" size={48} className="mx-auto animate-spin text-primary" />
@@ -137,6 +213,22 @@ const Editor = () => {
                         <p className="text-lg font-medium">Создаём видео...</p>
                         <Progress value={progress} className="h-2" />
                         <p className="text-sm text-muted-foreground">{progress}%</p>
+                      </div>
+                    </div>
+                  ) : videoPreview ? (
+                    <div className="relative w-full h-full group">
+                      <img src={videoPreview} alt="Video preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Button size="lg" className="gradient-primary border-0">
+                          <Icon name="Play" size={24} className="mr-2" />
+                          Воспроизвести
+                        </Button>
+                      </div>
+                      <div className="absolute bottom-4 right-4 flex gap-2">
+                        <Button size="sm" variant="secondary">
+                          <Icon name="Download" size={16} className="mr-1" />
+                          Скачать
+                        </Button>
                       </div>
                     </div>
                   ) : (

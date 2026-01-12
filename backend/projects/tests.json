@@ -1,0 +1,24 @@
+{
+  "tests": [
+    {
+      "name": "Create new project",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "user_id": 1,
+        "title": "Test Project",
+        "duration": 5,
+        "animation_type": "subtle",
+        "transition": "fade",
+        "thumbnail_emoji": "🎬"
+      },
+      "expectedStatus": 201
+    },
+    {
+      "name": "Get user projects",
+      "method": "GET",
+      "path": "/?user_id=1",
+      "expectedStatus": 200
+    }
+  ]
+}

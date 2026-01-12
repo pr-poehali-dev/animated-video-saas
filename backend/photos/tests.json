@@ -1,0 +1,11 @@
+{
+  "tests": [
+
+    {
+      "name": "Get project photos",
+      "method": "GET",
+      "path": "/?project_id=999",
+      "expectedStatus": 200
+    }
+  ]
+}
