@@ -72,16 +72,13 @@ const Editor = () => {
     setPhotos(photos.filter(p => p.id !== id));
   };
 
-  const generateVideoPreview = () => {
+  const generateVideoPreview = async () => {
     const canvas = document.createElement('canvas');
-    canvas.width = 640;
-    canvas.height = 360;
-    const ctx = canvas.getContext('2d');
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext('2d', { willReadFrequently: false });
     if (!ctx) return null;
 
-    ctx.fillStyle = '#1a1f2c';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
     gradient.addColorStop(0, '#9b87f5');
     gradient.addColorStop(0.5, '#D946EF');
@@ -89,12 +86,37 @@ const Editor = () => {
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (photos.length > 0) {
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((resolve) => {
+          img.onload = resolve;
+          img.src = photos[0].url;
+        });
+        
+        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+        const x = (canvas.width - img.width * scale) / 2;
+        const y = (canvas.height - img.height * scale) / 2;
+        
+        ctx.globalAlpha = 0.7;
+        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+        ctx.globalAlpha = 1;
+      } catch (err) {
+        console.log('Preview image load skipped');
+      }
+    }
+
     ctx.fillStyle = 'white';
-    ctx.font = 'bold 24px Montserrat';
+    ctx.font = 'bold 48px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText(`Видео из ${photos.length} фото`, canvas.width / 2, canvas.height / 2 - 20);
-    ctx.font = '16px Inter';
-    ctx.fillText(`${duration[0]}с каждый кадр · ${animationType}`, canvas.width / 2, canvas.height / 2 + 20);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`Видео из ${photos.length} фото`, canvas.width / 2, canvas.height / 2 - 30);
+    ctx.font = '24px system-ui';
+    ctx.fillText(`${duration[0]}с · ${animationType} · ${transition}`, canvas.width / 2, canvas.height / 2 + 30);
 
     return canvas.toDataURL('image/png');
   };
@@ -112,15 +134,18 @@ const Editor = () => {
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval);
-          setIsProcessing(false);
-          const preview = generateVideoPreview();
-          setVideoPreview(preview);
-          toast.success('Видео готово!');
           return 100;
         }
         return prev + 10;
       });
     }, 500);
+
+    setTimeout(async () => {
+      const preview = await generateVideoPreview();
+      setVideoPreview(preview);
+      setIsProcessing(false);
+      toast.success('Видео готово!');
+    }, 5000);
   };
 
   return (
