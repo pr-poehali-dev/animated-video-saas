@@ -11,7 +11,12 @@ interface Photo {
   id: string;
   url: string;
   name: string;
+  file?: File;
+  s3Url?: string;
 }
+
+const UPLOAD_API = 'https://functions.poehali.dev/ddcb5c35-3e04-44df-bde7-5315313e9aba';
+const GENERATE_VIDEO_API = 'https://functions.poehali.dev/6db7685b-2938-4e77-83f4-3ed428cc994e';
 
 const Editor = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -31,7 +36,8 @@ const Editor = () => {
       .map((file) => ({
         id: Math.random().toString(),
         url: URL.createObjectURL(file),
-        name: file.name
+        name: file.name,
+        file: file
       }));
 
     if (photos.length + newPhotos.length > 3) {
@@ -94,6 +100,31 @@ const Editor = () => {
     toast.success('Превью скачано!');
   };
 
+  const uploadPhotoToS3 = async (photo: Photo): Promise<string> => {
+    if (photo.s3Url) return photo.s3Url;
+    if (!photo.file) throw new Error('No file data');
+
+    const reader = new FileReader();
+    const base64 = await new Promise<string>((resolve, reject) => {
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(photo.file!);
+    });
+
+    const response = await fetch(UPLOAD_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        file: base64,
+        fileName: photo.name
+      })
+    });
+
+    if (!response.ok) throw new Error('Upload failed');
+    const data = await response.json();
+    return data.url;
+  };
+
   const generateVideoPreview = async () => {
     try {
       const canvas = document.createElement('canvas');
@@ -143,38 +174,46 @@ const Editor = () => {
     setProgress(0);
     setVideoPreview('');
 
-    let currentProgress = 0;
-    const interval = setInterval(() => {
-      currentProgress += 10;
-      setProgress(currentProgress);
-      
-      if (currentProgress >= 100) {
-        clearInterval(interval);
-      }
-    }, 500);
+    try {
+      setProgress(10);
+      toast.info('Загружаю фото в облако...');
 
-    setTimeout(async () => {
-      try {
-        console.log('Starting preview generation...');
-        const preview = await generateVideoPreview();
-        console.log('Preview generated:', preview?.substring(0, 50));
-        
-        if (preview && preview.length > 0) {
-          console.log('Setting video preview, length:', preview.length);
-          setVideoPreview(preview);
-          setIsProcessing(false);
-          toast.success('Видео готово!');
-        } else {
-          console.error('Preview is empty or null');
-          setIsProcessing(false);
-          toast.error('Ошибка создания превью');
-        }
-      } catch (error) {
-        console.error('Preview generation error:', error);
-        setIsProcessing(false);
-        toast.error('Ошибка создания видео');
-      }
-    }, 5500);
+      const uploadedPhotos = await Promise.all(
+        photos.map(async (photo) => {
+          const s3Url = await uploadPhotoToS3(photo);
+          return { url: s3Url, name: photo.name };
+        })
+      );
+
+      setProgress(40);
+      toast.info('Создаю видео...');
+
+      const response = await fetch(GENERATE_VIDEO_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photos: uploadedPhotos,
+          duration: duration[0],
+          animationType: animationType,
+          transition: transition
+        })
+      });
+
+      if (!response.ok) throw new Error('Video generation failed');
+
+      setProgress(70);
+      const data = await response.json();
+
+      setProgress(100);
+      setVideoPreview(data.preview_url);
+      toast.success('Видео готово!');
+
+    } catch (error) {
+      console.error('Video generation error:', error);
+      toast.error('Ошибка создания видео');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (

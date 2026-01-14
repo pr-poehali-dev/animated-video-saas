@@ -1,0 +1,35 @@
+{
+  "tests": [
+    {
+      "name": "Generate video from photos",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "photos": [
+          {"url": "https://example.com/photo1.jpg", "name": "photo1.jpg"},
+          {"url": "https://example.com/photo2.jpg", "name": "photo2.jpg"}
+        ],
+        "duration": 5,
+        "animationType": "subtle",
+        "transition": "fade"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "video_id": "string",
+        "preview_url": "string",
+        "video_url": "string",
+        "status": "completed"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Reject empty photos",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "photos": []
+      },
+      "expectedStatus": 400
+    }
+  ]
+}

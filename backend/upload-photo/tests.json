@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "name": "Upload photo successfully",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "file": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "fileName": "test.png"
+      },
+      "expectedStatus": 200
+    },
+    {
+      "name": "Reject empty file",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "fileName": "test.png"
+      },
+      "expectedStatus": 400
+    }
+  ]
+}
