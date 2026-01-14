@@ -21,7 +21,7 @@ const Editor = () => {
   const [animationType, setAnimationType] = useState('subtle');
   const [transition, setTransition] = useState('fade');
   const [isDragging, setIsDragging] = useState(false);
-  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processFiles = (files: FileList | File[]) => {
@@ -119,7 +119,7 @@ const Editor = () => {
 
     setIsProcessing(true);
     setProgress(0);
-    setVideoPreview(null);
+    setVideoPreview('');
 
     let currentProgress = 0;
     const interval = setInterval(() => {
@@ -133,19 +133,24 @@ const Editor = () => {
 
     setTimeout(async () => {
       try {
+        console.log('Starting preview generation...');
         const preview = await generateVideoPreview();
-        console.log('Preview generated:', preview ? 'success' : 'failed');
-        if (preview) {
+        console.log('Preview generated:', preview?.substring(0, 50));
+        
+        if (preview && preview.length > 0) {
+          console.log('Setting video preview, length:', preview.length);
           setVideoPreview(preview);
+          setIsProcessing(false);
           toast.success('Видео готово!');
         } else {
+          console.error('Preview is empty or null');
+          setIsProcessing(false);
           toast.error('Ошибка создания превью');
         }
       } catch (error) {
         console.error('Preview generation error:', error);
-        toast.error('Ошибка создания видео');
-      } finally {
         setIsProcessing(false);
+        toast.error('Ошибка создания видео');
       }
     }, 5500);
   };
@@ -231,7 +236,10 @@ const Editor = () => {
 
             <Card className="glass border-border">
               <CardContent className="p-6">
-                <h2 className="text-xl font-bold mb-4">Превью</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold">Превью</h2>
+                  {videoPreview && <span className="text-xs text-green-500">✓ Готово</span>}
+                </div>
                 <div className="aspect-video bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl flex items-center justify-center overflow-hidden relative">
                   {isProcessing ? (
                     <div className="text-center space-y-4 w-full px-8">
@@ -242,7 +250,7 @@ const Editor = () => {
                         <p className="text-sm text-muted-foreground">{progress}%</p>
                       </div>
                     </div>
-                  ) : videoPreview ? (
+                  ) : videoPreview && videoPreview.length > 0 ? (
                     <div className="relative w-full h-full group">
                       <img src={videoPreview} alt="Video preview" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
