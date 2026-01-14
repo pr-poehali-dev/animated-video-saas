@@ -22,6 +22,7 @@ const Editor = () => {
   const [transition, setTransition] = useState('fade');
   const [isDragging, setIsDragging] = useState(false);
   const [videoPreview, setVideoPreview] = useState<string>('');
+  const [isPlaying, setIsPlaying] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processFiles = (files: FileList | File[]) => {
@@ -70,6 +71,27 @@ const Editor = () => {
 
   const removePhoto = (id: string) => {
     setPhotos(photos.filter(p => p.id !== id));
+  };
+
+  const handlePlayVideo = () => {
+    setIsPlaying(true);
+    toast.success('🎬 Воспроизведение видео (демо)');
+    setTimeout(() => {
+      setIsPlaying(false);
+      toast.success('Видео завершено');
+    }, 3000);
+  };
+
+  const handleDownloadVideo = () => {
+    if (!videoPreview) return;
+    
+    const link = document.createElement('a');
+    link.href = videoPreview;
+    link.download = `video-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Превью скачано!');
   };
 
   const generateVideoPreview = async () => {
@@ -252,15 +274,33 @@ const Editor = () => {
                     </div>
                   ) : videoPreview && videoPreview.length > 0 ? (
                     <div className="relative w-full h-full group">
-                      <img src={videoPreview} alt="Video preview" className="w-full h-full object-cover" />
+                      <img 
+                        src={videoPreview} 
+                        alt="Video preview" 
+                        className={`w-full h-full object-cover transition-all duration-300 ${isPlaying ? 'scale-105' : ''}`}
+                      />
+                      {isPlaying && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <Icon name="Play" size={64} className="text-white animate-pulse" />
+                        </div>
+                      )}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button size="lg" className="gradient-primary border-0">
-                          <Icon name="Play" size={24} className="mr-2" />
-                          Воспроизвести
+                        <Button 
+                          size="lg" 
+                          className="gradient-primary border-0"
+                          onClick={handlePlayVideo}
+                          disabled={isPlaying}
+                        >
+                          <Icon name={isPlaying ? "Pause" : "Play"} size={24} className="mr-2" />
+                          {isPlaying ? 'Воспроизведение...' : 'Воспроизвести'}
                         </Button>
                       </div>
-                      <div className="absolute bottom-4 right-4 flex gap-2">
-                        <Button size="sm" variant="secondary">
+                      <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button 
+                          size="sm" 
+                          variant="secondary"
+                          onClick={handleDownloadVideo}
+                        >
                           <Icon name="Download" size={16} className="mr-1" />
                           Скачать
                         </Button>
